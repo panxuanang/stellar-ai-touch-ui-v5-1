@@ -1,0 +1,24 @@
+星语伴侣 Touch UI V5.1 - GitHub 上传/编译快速步骤
+
+1. 解压 STELLAR_AI_Touch_UI_V4_GitHub_Project.zip
+2. 打开 stellar-ai-touch-ui-v5-1 文件夹
+3. 把里面全部内容上传到 GitHub 仓库根目录
+4. 如果 .github 隐藏目录无法上传：
+   - GitHub -> Add file -> Create new file
+   - 文件名：.github/workflows/build-stellar-v5-1.yml
+   - 打开 build-stellar-v5-1.yml_COPY_THIS_TO_.github_workflows.txt
+   - 全选复制进去并 Commit
+5. GitHub -> Actions -> Build STELLAR AI Touch UI V5.1 -> Run workflow
+6. upstream_ref 保持 main
+7. 成功后下载 Artifact：STELLAR_AI_Touch_UI_V4_<编号>
+8. 解压 Artifact，烧录 merged-binary.bin
+
+V4 重点：
+- 统一浅色整体风格
+- 中央人物改成浅色房间背景，不再有深色黑块
+- 首页只留时间/日期/AI/天气/今日待办
+- 点击人物或 AI 卡片进入对话
+- 不显示微信 Bubble
+- 长回答自动扩大，人物缩小
+- 从顶部开始显示
+- 2000ms 后以 120ms/像素向下滚动一次，到底停止
