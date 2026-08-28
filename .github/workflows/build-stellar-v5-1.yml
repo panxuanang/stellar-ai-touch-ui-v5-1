@@ -1,0 +1,94 @@
+name: Build STELLAR AI Touch UI V5.1
+
+"on":
+  workflow_dispatch:
+    inputs:
+      upstream_ref:
+        description: "78/xiaozhi-esp32 branch, tag, or commit (first run: main)"
+        required: true
+        default: "main"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Waveshare ESP32-S3-Touch-LCD-3.5
+    runs-on: ubuntu-latest
+    container:
+      image: espressif/idf:v6.0.2
+
+    steps:
+      - name: Checkout STELLAR overlay project
+        uses: actions/checkout@v5
+        with:
+          path: stellar-overlay
+
+      - name: Checkout xiaozhi-esp32
+        uses: actions/checkout@v5
+        with:
+          repository: 78/xiaozhi-esp32
+          ref: ${{ inputs.upstream_ref }}
+          fetch-depth: 1
+          path: xiaozhi-src
+
+      - name: Apply STELLAR AI Touch UI V5.1
+        shell: bash
+        run: |
+          python stellar-overlay/scripts/apply_mods.py \
+            --source xiaozhi-src \
+            --overlay stellar-overlay/overlay
+          python stellar-overlay/scripts/prepare_secret_config.py xiaozhi-src
+
+      - name: Verify V5.1 patch
+        shell: bash
+        run: |
+          grep -q 'new StellarDisplay(' \
+            xiaozhi-src/main/boards/waveshare/esp32-s3-touch-lcd-3.5/esp32-s3-touch-lcd-3.5.cc
+          grep -q 'CONFIG_USE_WECHAT_MESSAGE_STYLE=n' \
+            xiaozhi-src/main/boards/waveshare/esp32-s3-touch-lcd-3.5/config.json
+          ! grep -q 'CONFIG_USE_WECHAT_MESSAGE_STYLE=y' \
+            xiaozhi-src/main/boards/waveshare/esp32-s3-touch-lcd-3.5/config.json
+          grep -q 'Touch UI V5.1' xiaozhi-src/main/display/stellar/stellar_display.cc
+          grep -q '点击人物开始对话' xiaozhi-src/main/display/stellar/stellar_display.cc
+          grep -q '今日待办' xiaozhi-src/main/display/stellar/stellar_display.cc
+          grep -q 'kScrollDelayMs = 2000' xiaozhi-src/main/display/stellar/stellar_display.cc
+          grep -q 'kScrollMsPerPixel = 120' xiaozhi-src/main/display/stellar/stellar_display.cc
+          grep -q '.w = 200' xiaozhi-src/main/display/stellar/stellar_avatar.c
+          grep -q '.h = 320' xiaozhi-src/main/display/stellar/stellar_avatar.c
+
+      - name: Build merged firmware
+        shell: bash
+        working-directory: xiaozhi-src
+        run: |
+          source "$IDF_PATH/export.sh"
+          python scripts/build.py waveshare/esp32-s3-touch-lcd-3.5 \
+            --name esp32-s3-touch-lcd-3.5
+
+      - name: Package BIN files
+        shell: bash
+        run: |
+          test -s xiaozhi-src/build/merged-binary.bin
+          mkdir -p stellar-overlay/dist
+          cp xiaozhi-src/build/merged-binary.bin stellar-overlay/dist/merged-binary.bin
+          cp xiaozhi-src/build/merged-binary.bin \
+            stellar-overlay/dist/STELLAR_AI_Touch_UI_V5_1_merged-binary.bin
+          sha256sum stellar-overlay/dist/merged-binary.bin \
+            > stellar-overlay/dist/SHA256SUMS.txt
+          printf 'STELLAR AI Touch UI V5.1\n' > stellar-overlay/dist/BUILD_INFO.txt
+          printf 'Board: waveshare/esp32-s3-touch-lcd-3.5\n' >> stellar-overlay/dist/BUILD_INFO.txt
+          printf 'Upstream ref: %s\n' '${{ inputs.upstream_ref }}' >> stellar-overlay/dist/BUILD_INFO.txt
+          printf 'Upstream commit: %s\n' "$(git -C xiaozhi-src rev-parse HEAD)" >> stellar-overlay/dist/BUILD_INFO.txt
+          printf 'ESP-IDF image: espressif/idf:v6.0.2\n' >> stellar-overlay/dist/BUILD_INFO.txt
+          printf 'UI: unified pastel dashboard + light character scene + custom chat\n' >> stellar-overlay/dist/BUILD_INFO.txt
+          printf 'Home: time/date + AI + weather + today todo; no network/brand block\n' >> stellar-overlay/dist/BUILD_INFO.txt
+          printf 'Scroll: 2000ms delay, 120ms/pixel, one-way, no repeat\n' >> stellar-overlay/dist/BUILD_INFO.txt
+
+      - name: Upload merged BIN artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: STELLAR_AI_Touch_UI_V5_1_${{ github.run_number }}
+          path: stellar-overlay/dist/*
+          if-no-files-found: error
+          retention-days: 30
